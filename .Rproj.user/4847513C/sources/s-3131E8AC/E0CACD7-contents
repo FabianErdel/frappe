@@ -1,0 +1,80 @@
+## load libraries
+library(foreach)
+
+## coefficients for half-FRAP fit function, bleached half
+bleached_no_boundary_d_coeff <- function(alpha, n, rc, rl) {
+  res <- 0
+  if(n==0) {res <- 2/rl^2 * besselJ(alpha*rc,1)^2/alpha^2/besselJ(alpha*rl,0)^2}
+  else if(n%%2!=0) {
+    m <- abs(n)
+    res <- 8/pi^2 * rc^2*alpha^2*(alpha*rc/2)^(2*m) * hypergeo(m=m,z=-alpha^2*rc^2/4)^2
+    res <- res / (alpha^2-m^2/rl^2)/m^4/(2+m)^2/gamma(m)^2/besselJ(alpha*rl,m)^2/rl^2
+  }
+  return(res)
+}
+
+## coefficients for half-FRAP fit function, non-bleached half
+nonbleached_no_boundary_d_coeff <- function(alpha, n, rc, rl) {
+  res <- 0
+  if(n==0) {res <- 2/rl^2 * besselJ(alpha*rc,1)^2/alpha^2/besselJ(alpha*rl,0)^2}
+  else if(n%%2!=0) {
+    m <- abs(n)
+    res <- -8/pi^2 * rc^2*alpha^2*(alpha*rc/2)^(2*m) * hypergeo(m=m,z=-alpha^2*rc^2/4)^2
+    res <- res / (alpha^2-m^2/rl^2)/m^4/(2+m)^2/gamma(m)^2/besselJ(alpha*rl,m)^2/rl^2
+  }
+  return(res)
+}
+
+## define half-FRAP fit function, bleached half
+bleached_no_boundary_d_fit <- function(t) {
+  function(d, rc, rl) {
+    amax <- 50
+    nmax <- 30
+    prec <- 1e-3
+    
+    cnt <- 1
+    res <- matrix(0, nrow=2*nmax+1, ncol=length(t))
+    for(n in -nmax:nmax) {
+      # find zeros for a given n
+      alpha <- zeros(rl, 0, n, amax, prec)
+      alpha <- alpha[alpha>prec] # exclude values close to zero to avoid rounding errors
+
+      # calculate function
+      s <- bleached_no_boundary_d_coeff(alpha, n, rc, rl)
+      res[cnt,] <- foreach(i = seq_along(t), .combine = cbind) %dopar% {
+        sum(s*exp(-alpha^2*d*t[i]))
+      }
+      
+      # increase counter
+      cnt <- cnt+1
+    }
+    return(1 - rc^2/2/rl^2 - colSums(res, na.rm = T))
+  }
+}
+
+## define half-FRAP fit function, non-bleached half
+nonbleached_no_boundary_d_fit <- function(t) {
+  function(d, rc, rl) {
+    amax <- 50
+    nmax <- 30
+    prec <- 1e-3
+    
+    cnt <- 1
+    res <- matrix(0, nrow=2*nmax+1, ncol=length(t))
+    for(n in -nmax:nmax) {
+      # find zeros
+      alpha <- zeros(rl, 0, n, amax, prec)
+      alpha <- alpha[alpha>prec] # exclude values close to zero to avoid rounding errors
+      
+      # calculate function
+      s <- nonbleached_no_boundary_d_coeff(alpha, n, rc, rl)
+      res[cnt,] <- foreach(i = seq_along(t), .combine = cbind) %dopar% {
+        sum(s*exp(-alpha^2*d*t[i]))
+      }
+      
+      # increase counter
+      cnt <- cnt+1
+    }
+    return(1 - rc^2/2/rl^2 - colSums(res, na.rm = T))
+  }
+}

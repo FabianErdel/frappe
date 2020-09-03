@@ -1,0 +1,77 @@
+## load library
+library(foreach)
+
+## FRAP fit function for a full circle (Soumpasis, 1983)
+soumpasis_fit <- function(t) {
+  function(d, radius) {
+    tau <- radius^2/d
+    res <- exp(-tau/2/t)*(besselI(tau/2/t,0)+besselI(tau/2/t,1))
+    res[t==0] <- 0 # avoid rounding errors for t=0
+    return(res)
+  }
+}
+
+## FRAP fit function for a reaction-dominant model
+reaction_fit <- function(t) {
+  function(kon, koff) {
+    res <- 1-kon/(kon+koff)*exp(-koff*t)
+    return(res)
+  }
+}
+
+## coefficients for FRAP fit function, full circle (no boundary)
+circle_no_boundary_full_coeff <- function(alpha, rc, rl) {
+  res <- 4*besselJ(alpha*rc,1)^2/(alpha^2*rl^2*besselJ(alpha*rl,0)^2)
+  return(res)
+}
+
+## FRAP fit function for full circle (no boundary)
+circle_no_boundary_full_d_fit <- function(t) {
+  function(d, rc, rl) {
+    amax <- 50
+    prec <- 1e-3
+
+    res <- rep(0, length(t))
+
+    # find positive zeros for n=0
+    alpha <- zeros(rl, 0, 0, amax, prec)
+    alpha <- alpha[alpha>prec] # exclude values close to zero to avoid rounding errors
+
+    # calculate function
+    s <- circle_no_boundary_full_coeff(alpha, rc, rl)
+    res <- foreach(i = seq_along(t), .combine = cbind) %dopar% {
+      sum(s*exp(-alpha^2*d*t[i]))
+    }
+
+    return(1-rc^2/rl^2-res)
+  }
+}
+
+## FRAP fit function for full circle (no boundary)
+circle_no_boundary_full_rd_fit <- function(t) {
+  function(d, rc, rl, kon, koff) {
+    amax <- 50
+    prec <- 1e-3
+
+    res <- rep(0, length(t))
+
+    # find positive zeros for n=0
+    alpha <- zeros(rl, 0, 0, amax, prec)
+    alpha <- alpha[alpha>prec] # exclude values close to zero to avoid rounding errors
+
+    # define quantities for fit function
+    feq <- koff/(kon+koff)
+    v <- sqrt(1/4*(d*alpha^2+kon+koff)^2-koff*d*alpha^2)
+    w <- 1/2*(d*alpha^2+kon+koff)
+    a <- (koff+kon-v-w)*(v-w)/2/koff/v
+    b <- (koff+kon+v-w)*(v+w)/2/koff/v
+
+    # calculate function
+    s <- circle_no_boundary_full_coeff(alpha, rc, rl)
+    res <- foreach(i = seq_along(t), .combine = cbind) %dopar% {
+      sum(s*(a*exp(-(w+v)*t[i])+b*exp(-(w-v)*t[i])))
+    }
+
+    return(1-rc^2/rl^2-feq*res)
+  }
+}

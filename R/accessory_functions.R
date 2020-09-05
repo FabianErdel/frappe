@@ -1,5 +1,5 @@
 ## load library
-library(hypergeo)
+#' @importFrom hypergeo genhypergeo
 
 #' Hypergeometric series
 #'

@@ -1,11 +1,10 @@
 Package: frappe
 Type: Package
 Imports: foreach, hypergeo
-Title: Fit FRAP curves
+Title: FRAP analysis
 Version: 0.1.0
 Author: person("Fabian", "Erdel", email = "fabian.erdel@ibcg.biotoul.fr”, role = c("aut", "cre"))
-Description: This package can be used to quantitatively evaluate bleach experiments, which involve bleaching circular objects or half of them
-    Use four spaces when indenting paragraphs within the Description.
+Description: This package can be used to quantitatively evaluate bleach experiments, which involve bleaching circular objects or half of them.
 License: GPL
 Encoding: UTF-8
 LazyData: true
